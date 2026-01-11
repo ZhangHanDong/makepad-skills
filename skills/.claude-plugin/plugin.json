@@ -1,7 +1,7 @@
 {
   "name": "makepad",
-  "version": "1.10.0",
-  "description": "Build and package cross-platform UI applications with Makepad framework in Rust. Includes Makepad-specific Rust patterns, async architecture with tokio integration, context-aware code quality (knows what NOT to simplify), Unicode/grapheme handling. Self-improving skills with auto-correction, validation, and personalization. Covers project setup, widgets, events, shaders, animations, layouts, troubleshooting, and deployment.",
+  "version": "2.1.0",
+  "description": "Build cross-platform UI applications with Makepad framework in Rust. Atomic skill structure for collaborative development: _base/ (official patterns) + community/ (your contributions). Categories: 00-getting-started, 01-core, 02-components, 03-graphics (14 atomic shaders/animations), 04-patterns (14 atomic patterns), 05-deployment, 06-reference, 99-evolution (templates for contribution). Self-evolution feature captures patterns during development. Features tokio async, callout tooltips, SVG icons, and hooks-based auto-triggering.",
   "author": {
     "name": "Robius",
     "url": "https://github.com/project-robius"
@@ -70,6 +70,12 @@
     "borrow-checker",
     "project-structure",
     "module-organization",
-    "best-practices"
+    "best-practices",
+    "svg",
+    "icon",
+    "icon-button",
+    "draw-icon",
+    "hooks",
+    "auto-trigger"
   ]
 }
