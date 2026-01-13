@@ -9,6 +9,15 @@
             "command": "bash .claude/skills/hooks/pre-tool.sh"
           }
         ]
+      },
+      {
+        "matcher": "Write|Edit|Update",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/skills/hooks/pre-ui-edit.sh"
+          }
+        ]
       }
     ],
     "PostToolUse": [
