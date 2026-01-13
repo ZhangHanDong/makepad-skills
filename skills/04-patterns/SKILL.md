@@ -36,10 +36,15 @@ Proven patterns for building robust Makepad applications.
 |---------|-------------|
 | [Tokio Integration](_base/13-tokio-integration.md) | Async runtime architecture |
 | [Callout Tooltip](_base/14-callout-tooltip.md) | Context-aware tooltips |
+| [Hover Effect](_base/16-hover-effect.md) | Reliable hover states with instance variables |
 
 ## Community Patterns
 
-See [community/](community/) for community-contributed patterns.
+| Pattern | Description |
+|---------|-------------|
+| [Custom 3D Widget](community/custom-3d-widget.md) | Reusable widget with custom GPU rendering (DrawMesh, geometry) |
+
+See [community/](community/) for more community-contributed patterns.
 
 To contribute your own pattern, use the template at [99-evolution/templates/pattern-template.md](../99-evolution/templates/pattern-template.md).
 
@@ -62,6 +67,12 @@ To contribute your own pattern, use the template at [99-evolution/templates/patt
 - **Large lists**: Use [List Template](_base/04-list-template.md)
 - **Heavy views**: Use [LRU View Cache](_base/05-lru-view-cache.md)
 - **Background work**: Use [Tokio Integration](_base/13-tokio-integration.md)
+
+### For Custom Rendering
+
+- **3D widgets**: Use [Custom 3D Widget](community/custom-3d-widget.md)
+- **Custom geometry**: Create GeometryFields implementation with unique instance_id
+- **Multiple meshes**: Use template pattern to share shaders across DrawMesh instances
 
 ## References
 

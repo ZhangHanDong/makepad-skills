@@ -100,6 +100,81 @@ amount_input = <TextInput> {
 
 ---
 
+<!-- Evolution: 2025-01-13 | source: mofa-studio | author: text-selection-fix -->
+### TextInput Selection Stealing Focus / Conflicts
+
+**Symptom**: Multiple TextInput widgets cause focus conflicts, selected text appears in wrong fields, or text selection behaves erratically when switching between views or panels.
+
+**Causes**:
+1. Hidden TextInputs still receiving events
+2. Multiple TextInputs competing for selection state
+3. TextInput in conditionally visible views maintaining selection
+
+**Fix 1**: Add visibility checks before processing events
+```rust
+// In handle_event, check visibility before processing TextInput
+fn handle_event(&mut self, cx: &mut Cx, event: &Event, scope: &mut Scope) {
+    // Only process events for visible TextInputs
+    if self.view.view(id!(text_container)).is_visible() {
+        let text_input = self.view.text_input(id!(my_input));
+        // Process text input events
+    }
+}
+```
+
+**Fix 2**: Clear selection when hiding TextInput
+```rust
+// When hiding a panel with TextInput
+fn hide_panel(&mut self, cx: &mut Cx) {
+    // Clear any active selection first
+    self.view.text_input(id!(my_input)).apply_over(cx, live!{
+        cursor: { head: 0, tail: 0 }
+    });
+    self.view.view(id!(panel)).set_visible(cx, false);
+    self.view.redraw(cx);
+}
+```
+
+**Fix 3**: Simplify TextInput definitions - avoid complex nested styling
+```rust
+// AVOID - complex nested TextInput
+my_input = <TextInput> {
+    draw_bg: {
+        instance focus: 0.0
+        fn pixel(self) -> vec4 {
+            // Complex shader
+        }
+    }
+    draw_selection: { /* complex */ }
+    draw_cursor: { /* complex */ }
+}
+
+// BETTER - simple TextInput definition
+my_input = <TextInput> {
+    width: Fill, height: Fit
+    text: ""
+    draw_text: {
+        text_style: <FONT_REGULAR>{ font_size: 12.0 }
+        color: #333
+    }
+}
+```
+
+**Fix 4**: Use separate widget IDs and avoid reusing TextInput templates
+```rust
+// AVOID - reusing same template across dynamic items
+for i in 0..items.len() {
+    // Each item uses same text_input template - causes conflicts
+}
+
+// BETTER - static unique IDs for each TextInput
+input_1 = <TextInput> { /* ... */ }
+input_2 = <TextInput> { /* ... */ }
+input_3 = <TextInput> { /* ... */ }
+```
+
+---
+
 ### Font Field Not Found
 
 ```
@@ -351,6 +426,61 @@ self.draw_bg.apply_over(cx, live! {
     progress: (0.5)
 });
 ```
+
+---
+
+<!-- Evolution: 2025-01-13 | source: mofa-studio | author: hover-effect-fix -->
+### apply_over Color Not Working on RoundedView/View Templates
+
+**Symptom**: Call `apply_over(cx, live!{ draw_bg: { color: (new_color) } })` on a RoundedView or View template widget, but the visual color never changes.
+
+**Cause**: Direct `color` property changes via `apply_over` don't work reliably on widget templates. The issue occurs when trying to dynamically change background colors for hover/selected states.
+
+**What Doesn't Work**:
+```rust
+// WRONG - This will NOT update the visual appearance
+CustomItem = <RoundedView> {
+    show_bg: true
+    draw_bg: {
+        border_radius: 0
+        color: (WHITE)
+    }
+}
+
+// In Rust - color never visually changes despite code executing
+self.view.view(path).apply_over(cx, live!{
+    draw_bg: { color: (hover_color) }  // ❌ No visual effect
+});
+```
+
+**Fix**: Use a custom shader with `instance` variables instead of direct color:
+```rust
+// CORRECT - Use instance variables in custom shader
+CustomItem = <View> {
+    show_bg: true
+    draw_bg: {
+        instance hover: 0.0
+        instance selected: 0.0
+        instance dark_mode: 0.0
+
+        fn pixel(self) -> vec4 {
+            let normal = mix((WHITE), (SLATE_800), self.dark_mode);
+            let hover_color = mix(#DAE6F9, #334155, self.dark_mode);
+            let selected_color = mix(#DBEAFE, #1E3A5F, self.dark_mode);
+
+            let base = mix(normal, hover_color, self.hover);
+            return mix(base, selected_color, self.selected);
+        }
+    }
+}
+
+// In Rust - this WORKS
+self.view.view(path).apply_over(cx, live!{
+    draw_bg: { hover: 1.0 }  // ✅ Visual effect works
+});
+```
+
+**Note**: This pattern is the same as how SectionHeader and other Makepad widgets implement hover effects.
 
 ---
 
@@ -715,6 +845,50 @@ fn navigate_to(&mut self, cx: &mut Cx, screen: Screen) {
 
 ---
 
+## Widget Overlay Issues
+
+### DropDown Popup Not Appearing (Z-Order Conflict)
+
+**Symptom**: DropDown button works but popup menu never appears, or Modal doesn't display over content.
+
+**Cause**: Custom 3D rendering (using `DrawMesh`, `draw_3d_shape`, or `draw_abs`) draws directly to the GPU framebuffer, bypassing Makepad's overlay layer system. This causes:
+- DropDown popup menus (which use `PopupMenuGlobal` on an overlay layer) to be drawn under the 3D content
+- Modal dialogs to be invisible behind 3D viewports
+
+**Affected widgets**:
+- `DropDown` - popup uses `Overlay` layer
+- `Modal` - content rendered on overlay
+- `PopupMenu` - same overlay system
+- Any widget using `PopupMenuGlobal`
+
+**Workaround**: Hide the 3D viewport when showing overlay widgets:
+
+```rust
+// When opening modal - hide 3D viewport
+if self.view.button(id!(open_btn)).clicked(&actions) {
+    self.view.view(id!(viewport)).set_visible(cx, false);  // Hide 3D content
+    self.view.modal(id!(my_modal)).open(cx);
+}
+
+// Robot selection - use buttons inside modal instead of dropdown
+if self.view.button(id!(my_modal.robot_btn)).clicked(&actions) {
+    // Handle selection
+    self.view.modal(id!(my_modal)).close(cx);
+    self.view.view(id!(viewport)).set_visible(cx, true);  // Restore 3D content
+}
+
+// Modal dismissed (click outside or Escape)
+if self.view.modal(id!(my_modal)).dismissed(&actions) {
+    self.view.view(id!(viewport)).set_visible(cx, true);  // Restore 3D content
+}
+```
+
+**Alternative**: Use Buttons or RadioButtons instead of DropDown for selection when 3D content is present.
+
+**Note**: Even placing a DropDown inside a Modal doesn't help - the nested overlay still conflicts with the 3D rendering. Use buttons for selection in modals over 3D viewports.
+
+---
+
 ## Debugging Tips
 
 ### Enable Debug Output
@@ -768,3 +942,7 @@ impl MatchEvent for App {
 | Tooltip off screen | No edge detection | Implement position fallback |
 | Tooltip flickers | Only HoverIn handled | Handle HoverIn + HoverOver |
 | Tooltip zero size | Getting size before text | Set text first, then get size |
+| DropDown not opening | Z-order conflict with 3D | Hide 3D viewport, use buttons |
+| Modal invisible | Custom GPU drawing on top | set_visible(cx, false) on 3D view |
+| apply_over color no effect | Direct color on templates | Use instance variables in shader |
+| TextInput focus conflicts | Hidden inputs receiving events | Add visibility checks, clear selection |
