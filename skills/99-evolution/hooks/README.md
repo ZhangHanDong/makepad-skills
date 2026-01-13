@@ -1,14 +1,39 @@
-# Makepad Skills Hooks
+# Makepad Skills Hooks (Optional)
 
-This folder contains Claude Code hooks to enable automatic triggering of makepad-evolution features.
+Hooks are **optional** Claude Code extensions that automatically check your Makepad UI code quality.
 
-## Prerequisites
+## Why Use Hooks?
 
-- `jq` must be installed for JSON parsing
+Makepad UI components often have text overlap issues when missing critical properties. The hook automatically reminds you to add:
+- `width` / `height` - Prevent layout collapse
+- `padding` - Ensure proper spacing
+- `draw_text` - Control text rendering
+- `wrap` - Handle text overflow
 
-## Setup
+**Without hooks**: You write incomplete UI code → compile → see visual bugs → fix manually
 
-Copy the hooks configuration to your project's `.claude/settings.json`:
+**With hooks**: Claude reminds you before writing incomplete code
+
+## Quick Setup
+
+### 1. Prerequisites
+
+```bash
+# macOS
+brew install jq
+
+# Ubuntu/Debian
+sudo apt install jq
+```
+
+### 2. Copy hooks to your project
+
+```bash
+cp -r .claude/skills/99-evolution/hooks .claude/skills/hooks
+chmod +x .claude/skills/hooks/*.sh
+```
+
+### 3. Add to `.claude/settings.json`
 
 ```json
 {
@@ -28,39 +53,48 @@ Copy the hooks configuration to your project's `.claude/settings.json`:
 }
 ```
 
-**Important**: Claude Code passes data via stdin as JSON, not command line arguments. Do not add `"$TOOL_NAME"` or `"$TOOL_INPUT"` to the command.
+If you already have a `settings.json`, merge the `hooks` section.
 
-## Hooks Overview
+## Available Hooks
 
 | Hook | Trigger | Purpose |
 |------|---------|---------|
-| `pre-ui-edit.sh` | Before Write/Edit/Update | Check UI code completeness, block if missing critical properties |
-| `post-bash.sh` | After Bash command | Detect compilation errors for self-correction |
-| `session-end.sh` | Session ends | Prompt for evolution review |
+| `pre-ui-edit.sh` | Before Write/Edit/Update | Check UI completeness (5 properties) |
 
 ## How It Works
 
-### UI Specification Checker (`pre-ui-edit.sh`)
+When you ask Claude to write UI code like `<Button>`, the hook checks for 5 critical properties. If fewer than 3 are present, it blocks and shows a reminder:
 
-When modifying UI code (Button, Label, TextInput, RoundedView), the hook:
+```
+┌─────────────────────────────────────────────────┐
+│  📐 UI Specification Check (1/5)                │
+└─────────────────────────────────────────────────┘
 
-1. Reads JSON input from stdin
-2. Extracts `tool_input.new_string` (for Edit) or `tool_input.content` (for Write)
-3. Checks for 5 critical properties: width, height, padding, draw_text, wrap
-4. If completeness < 3/5, outputs warning to stderr and exits with code 2 to block
+UI component missing critical properties:
 
-**Input format** (from Claude Code via stdin):
+  • width: Fit / Fill / number
+  • height: Fit / Fill / number
+  • padding: { left, right, top, bottom }
+  • draw_text: { text_style, color }
+
+💡 Complete specs prevent text overlap issues.
+```
+
+Claude will then rewrite the code with complete properties.
+
+## Technical Details
+
+- Claude Code passes data via **stdin as JSON**, not command line arguments
+- Output must go to **stderr** for display
+- Exit code `0` = allow, `2` = block with message
+
+Input format:
 ```json
 {
   "tool_name": "Edit",
   "tool_input": {
     "file_path": "src/app.rs",
-    "old_string": "...",
     "new_string": "<Button> { text: \"Click\" }"
   }
 }
 ```
-
-**Exit codes**:
-- `0`: Allow tool execution
-- `2`: Block tool execution and show message to Claude
