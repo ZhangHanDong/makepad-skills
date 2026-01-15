@@ -1,20 +1,22 @@
 # Contributing to Makepad Skills
 
-Thank you for contributing to the Makepad skills ecosystem! This guide explains how to contribute patterns, shaders, and troubleshooting entries.
+Thank you for contributing to the Makepad skills ecosystem! This guide explains how to contribute patterns, shaders, hooks, and troubleshooting entries.
 
 ## Directory Structure
 
 ```
 skills/
 ├── 03-graphics/
-│   ├── _base/           # Official skills (numbered)
+│   ├── _base/           # Official skills (numbered) - DO NOT modify
 │   └── community/       # Community contributions
 ├── 04-patterns/
-│   ├── _base/           # Official patterns (numbered)
+│   ├── _base/           # Official patterns (numbered) - DO NOT modify
 │   └── community/       # Community contributions
 ├── 06-reference/
 │   └── troubleshooting/ # Error/solution documentation
 └── 99-evolution/
+    ├── hooks/           # Hook scripts
+    ├── references/      # Detailed guides
     └── templates/       # Contribution templates
 ```
 
@@ -24,12 +26,12 @@ skills/
 
 Add your pattern to `04-patterns/community/`:
 
-**File naming**: `{github-handle}-{pattern-name}.md`
+**File naming**: `{descriptive-pattern-name}.md` (NO GitHub handle in filename)
 
 Examples:
-- `zhangsan-drag-drop-list.md`
-- `lisi-infinite-scroll.md`
-- `wangwu-theme-persistence.md`
+- `drag-drop-list.md`
+- `infinite-scroll.md`
+- `theme-persistence.md`
 
 **Template**: Copy from `99-evolution/templates/pattern-template.md`
 
@@ -37,12 +39,12 @@ Examples:
 
 Add your shader to `03-graphics/community/`:
 
-**File naming**: `{github-handle}-{effect-name}.md`
+**File naming**: `{descriptive-effect-name}.md` (NO GitHub handle in filename)
 
 Examples:
-- `zhangsan-glassmorphism.md`
-- `lisi-neon-glow.md`
-- `wangwu-particle-trail.md`
+- `glassmorphism.md`
+- `neon-glow.md`
+- `particle-trail.md`
 
 **Template**: Copy from `99-evolution/templates/shader-template.md`
 
@@ -59,6 +61,16 @@ Examples:
 
 **Template**: Copy from `99-evolution/templates/troubleshooting-template.md`
 
+### 4. Hooks
+
+Add hooks to `99-evolution/hooks/`:
+
+**File naming**: `{hook-purpose}.sh`
+
+**Template**: Copy from `99-evolution/templates/hook-template.md`
+
+**Additional requirements**: See [Hook Testing Requirements](#hook-testing-requirements) below.
+
 ## Frontmatter Format
 
 Every contribution must include YAML frontmatter:
@@ -66,13 +78,57 @@ Every contribution must include YAML frontmatter:
 ```yaml
 ---
 name: my-pattern-name
-author: your-github-handle
+author: your-github-handle          # Your ID goes here, NOT in filename
 source: project-where-you-discovered-this
 date: 2024-01-15
 tags: [tag1, tag2, tag3]
 level: beginner|intermediate|advanced
+makepad-branch: main|dev            # Required: specify which branch this works with
 ---
 ```
+
+## Naming Conflict Resolution
+
+Since filenames don't include GitHub handles, conflicts may occur:
+
+1. **First come, first served** - Merged PR owns the name
+2. **Use descriptive suffix** for different approaches:
+   - ✓ `drag-drop-native.md` vs `drag-drop-gesture.md`
+   - ✗ `drag-drop.md` vs `drag-drop-v2.md`
+3. **Maintainer decides** - May merge or replace if new version is clearly better
+
+## Testing Requirements
+
+### All Contributions Must Be Tested
+
+Before submitting PR, verify:
+
+- [ ] Code compiles with `cargo build`
+- [ ] Tested in a real Makepad project
+- [ ] All `live_design!` blocks are valid DSL
+- [ ] Examples work as documented
+
+**In PR description, include:**
+```markdown
+## Testing
+- Tested with: [project name or "standalone test"]
+- Makepad branch: main/dev
+- Platform: macOS/Linux/Windows
+```
+
+### Hook Testing Requirements
+
+Hooks require additional verification:
+
+- [ ] Tested with `claude --with-hooks` flag
+- [ ] Provided `settings.example.json` snippet in PR
+- [ ] Documented prerequisites (e.g., `jq`, `bash 4+`)
+- [ ] Works on macOS and Linux (note Windows limitations if any)
+
+**Required in PR for hooks:**
+
+1. **settings.example.json snippet** showing exact configuration
+2. **Test evidence** describing trigger scenario and behavior
 
 ## Quality Guidelines
 
@@ -94,6 +150,12 @@ level: beginner|intermediate|advanced
 - Show wrong vs. correct code
 - Provide copy-pasteable solutions
 
+### Hooks Should:
+- Solve a specific automation need
+- Be tested with `claude --with-hooks`
+- Include ready-to-use settings.example.json
+- Document all prerequisites
+
 ## Workflow
 
 ### Using Self-Evolution Skill
@@ -111,8 +173,9 @@ If you have the makepad-skills installed, use the self-evolution skill to add yo
 
 1. Fork the repository
 2. Create your file in the appropriate `community/` directory
-3. Fill in the template with your content
-4. Submit a Pull Request
+3. Test your contribution thoroughly
+4. Fill in the template with your content
+5. Submit a Pull Request with testing evidence
 
 ### Syncing Upstream
 
@@ -124,6 +187,34 @@ git merge upstream/main --no-edit
 ```
 
 Your `community/` files won't conflict with `_base/` changes.
+
+## PR Checklist
+
+Copy this checklist to your PR description:
+
+```markdown
+## Contribution Type
+- [ ] Pattern
+- [ ] Shader/Effect
+- [ ] Troubleshooting
+- [ ] Hook
+
+## Required Checks
+- [ ] File in correct `community/` directory
+- [ ] Frontmatter includes `author` and `makepad-branch`
+- [ ] Code tested and working
+- [ ] No modification to `_base/` files
+
+## Testing Evidence
+- Tested with: [project name]
+- Makepad branch: [main/dev]
+- Platform: [macOS/Linux/Windows]
+
+## For Hooks Only
+- [ ] Tested with `claude --with-hooks`
+- [ ] Included settings.example.json snippet
+- [ ] Documented prerequisites
+```
 
 ## Promotion Path
 
@@ -144,7 +235,7 @@ Promoted patterns:
 ### Why `_base/` + `community/`?
 
 1. **No merge conflicts**: Your community files never conflict with official updates
-2. **Attribution**: Your GitHub handle in filename provides clear credit
+2. **Attribution**: Your GitHub handle in frontmatter provides clear credit
 3. **Discoverability**: SKILL.md indexes both directories
 4. **Quality tiers**: Official vs community is clear
 
@@ -188,6 +279,10 @@ live_design! {
     }
 }
 ```
+
+## Detailed Guidelines
+
+For more details, see [Collaboration Guidelines](99-evolution/references/collaboration.md).
 
 ## Questions?
 

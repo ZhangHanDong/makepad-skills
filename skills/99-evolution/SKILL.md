@@ -11,6 +11,7 @@ This skill enables makepad-skills to self-improve continuously during developmen
 
 | Topic | Description |
 |-------|-------------|
+| [Collaboration Guidelines](references/collaboration.md) | **Contributing to makepad-skills** |
 | [Hooks Setup](#hooks-based-auto-triggering) | Auto-trigger evolution with hooks |
 | [When to Evolve](#when-to-evolve) | Triggers and classification |
 | [Evolution Process](#evolution-process) | Step-by-step guide |
@@ -293,7 +294,7 @@ Claude analyzes the current project to detect:
 
 ---
 
-## Skill File Locations (New Structure)
+## Skill File Locations
 
 ```
 skills/
@@ -301,11 +302,17 @@ skills/
 ├── 01-core/               ← Layout, widgets, events, styling
 ├── 02-components/         ← Widget gallery
 ├── 03-graphics/           ← Shaders, SDF, animations
+│   ├── _base/             ← Official (DO NOT modify)
+│   └── community/         ← Community contributions
 ├── 04-patterns/           ← Production patterns
+│   ├── _base/             ← Official (DO NOT modify)
+│   └── community/         ← Community contributions
 ├── 05-deployment/         ← Build & packaging
 ├── 06-reference/          ← Troubleshooting, code quality
 └── 99-evolution/          ← This file + hooks
-    └── hooks/             ← Auto-trigger hooks
+    ├── hooks/             ← Auto-trigger hooks
+    ├── references/        ← Detailed guides
+    └── templates/         ← Contribution templates
 ```
 
 ---
