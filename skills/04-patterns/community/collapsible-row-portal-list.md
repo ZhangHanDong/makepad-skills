@@ -1,7 +1,7 @@
 ---
-name: portal-list-auto-grouping
+name: collapsible-row-portal-list
 author: alanpoon
-source: news_feed example
+source: robrix
 date: 2026-01-19
 tags: [portal-list, grouping, collapsible, fold-header, rangemap]
 level: advanced

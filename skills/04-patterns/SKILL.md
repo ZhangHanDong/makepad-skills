@@ -51,7 +51,7 @@ Proven patterns for building robust Makepad applications.
 | Pattern | Description |
 |---------|-------------|
 | [Custom 3D Widget](community/custom-3d-widget.md) | Reusable widget with custom GPU rendering (DrawMesh, geometry) |
-
+| [Collapsible Row in PortalList](community/collapsible-row-portalist.md) | Group 3 or rows in a portal list by their keys and implement collaspible / fold button for the group |
 See [community/](community/) for more community-contributed patterns.
 
 To contribute your own pattern, use the template at [99-evolution/templates/pattern-template.md](../99-evolution/templates/pattern-template.md).
