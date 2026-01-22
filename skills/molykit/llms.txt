@@ -1,0 +1,829 @@
+# MolyKit - AI Chat UI Toolkit for Makepad
+
+> MolyKit is a library of reusable components for building AI chat interfaces with Makepad and Robius framework.
+
+## Overview
+
+MolyKit provides:
+- Cross-platform async utilities for native and WASM
+- Ready-to-use chat widgets (Chat, Messages, PromptInput, Avatar)
+- BotClient trait for integrating AI providers
+- OpenAI-compatible API client with SSE streaming
+- Protocol types for messages, bots, and tool calls
+- MCP (Model Context Protocol) integration
+
+---
+
+## Core Protocol Types
+
+### EntityId - Message Sender Identification
+
+```rust
+/// Identify entities in a chat
+#[derive(Clone, PartialEq, Eq, Hash, Debug, Default)]
+pub enum EntityId {
+    User,           // The user operating the app
+    System,         // System/developer messages for LLM context
+    Bot(BotId),     // Automated assistant (model, agent)
+    #[default]
+    App,            // App-specific information (inline errors)
+}
+```
+
+### BotId - Globally Unique Bot Identifier
+
+```rust
+/// Globally unique and stable bot identifier
+/// Format: <id_len>;<id>@<provider>
+#[derive(Clone, PartialEq, Eq, Hash, Debug, Default)]
+pub struct BotId(Arc<str>);
+
+impl BotId {
+    /// Creates a new bot id from provider-local id and provider domain/url
+    pub fn new(id: &str, provider: &str) -> Self {
+        let id = format!("{};{}@{}", id.len(), id, provider);
+        BotId(id.into())
+    }
+
+    pub fn id(&self) -> &str { /* provider-local id */ }
+    pub fn provider(&self) -> &str { /* provider domain */ }
+}
+```
+
+### Message and MessageContent
+
+```rust
+/// A message in a conversation
+#[derive(Clone, PartialEq, Debug, Default)]
+pub struct Message {
+    pub from: EntityId,
+    pub metadata: MessageMetadata,
+    pub content: MessageContent,
+}
+
+/// Standard message content format
+#[derive(Clone, Debug, PartialEq, Default)]
+pub struct MessageContent {
+    pub text: String,                    // Main body (markdown)
+    pub citations: Vec<String>,          // Source URLs
+    pub reasoning: String,               // Reasoning/thinking content
+    pub attachments: Vec<Attachment>,    // File attachments
+    pub tool_calls: Vec<ToolCall>,       // AI tool calls
+    pub tool_results: Vec<ToolResult>,   // Tool execution results
+    pub data: Option<String>,            // Non-standard data
+    pub upgrade: Option<Upgrade>,        // Realtime communication upgrade
+}
+
+/// Metadata tracked for each message
+#[derive(Clone, Debug, PartialEq)]
+pub struct MessageMetadata {
+    pub is_writing: bool,                       // Message still being written
+    pub created_at: DateTime<Utc>,
+    pub reasoning_updated_at: DateTime<Utc>,
+    pub text_updated_at: DateTime<Utc>,
+}
+```
+
+### Bot and BotCapabilities
+
+```rust
+#[derive(Clone, Debug)]
+pub struct Bot {
+    pub id: BotId,
+    pub name: String,
+    pub avatar: Picture,
+    pub capabilities: BotCapabilities,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub enum BotCapability {
+    Realtime,        // Supports realtime audio
+    Attachments,     // Supports image/file attachments
+    FunctionCalling, // Supports function calling
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct BotCapabilities {
+    capabilities: HashSet<BotCapability>,
+}
+
+impl BotCapabilities {
+    pub fn new() -> Self;
+    pub fn with_capability(mut self, capability: BotCapability) -> Self;
+    pub fn supports_realtime(&self) -> bool;
+    pub fn supports_attachments(&self) -> bool;
+    pub fn supports_function_calling(&self) -> bool;
+}
+```
+
+### Tool Calls and Results
+
+```rust
+/// Function/tool call made by the AI
+#[derive(Clone, PartialEq, Debug, Default)]
+pub struct ToolCall {
+    pub id: String,
+    pub name: String,
+    pub arguments: serde_json::Map<String, serde_json::Value>,
+    pub permission_status: ToolCallPermissionStatus,
+    pub permission_options: Vec<PermissionOption>,
+    pub execution_status: ToolCallExecutionStatus,
+    pub output: Option<String>,
+}
+
+#[derive(Clone, PartialEq, Debug, Default)]
+pub enum ToolCallPermissionStatus {
+    #[default]
+    Pending,
+    Approved,
+    Denied,
+}
+
+#[derive(Clone, PartialEq, Debug, Default)]
+pub enum ToolCallExecutionStatus {
+    #[default]
+    NotStarted,
+    InProgress,
+    Completed,
+    Failed,
+}
+
+/// Tool definition
+#[derive(Clone, Debug, PartialEq)]
+pub struct Tool {
+    pub name: String,
+    pub description: Option<String>,
+    pub input_schema: Arc<serde_json::Map<String, serde_json::Value>>,
+}
+```
+
+---
+
+## Async Utilities
+
+### PlatformSend - Cross-Platform Send Trait
+
+```rust
+/// Implies Send only on native platforms, not on WASM
+/// - On native: implemented by all types that implement Send
+/// - On WASM: implemented by all types, regardless of Send
+pub trait PlatformSend: PlatformSendInner {}
+
+cfg_if::cfg_if! {
+    if #[cfg(target_arch = "wasm32")] {
+        pub trait PlatformSendInner {}
+        impl<T> PlatformSendInner for T {}
+    } else {
+        pub trait PlatformSendInner: Send {}
+        impl<T> PlatformSendInner for T where T: Send {}
+    }
+}
+
+/// A future that requires Send on native, but not on WASM
+pub trait PlatformSendFuture: Future + PlatformSend {}
+
+/// A stream that requires Send on native, but not on WASM
+pub trait PlatformSendStream: Stream + PlatformSend {}
+
+/// Boxed platform-send future type
+pub type BoxPlatformSendFuture<'a, T> = Pin<Box<dyn PlatformSendFuture<Output = T> + 'a>>;
+
+/// Boxed platform-send stream type
+pub type BoxPlatformSendStream<'a, T> = Pin<Box<dyn PlatformSendStream<Item = T> + 'a>>;
+```
+
+### spawn() - Platform-Agnostic Task Spawning
+
+```rust
+/// Runs a future independently, in a platform-specific way
+/// - Uses tokio and requires Send on native platforms
+/// - Uses wasm-bindgen-futures on WASM and does not require Send
+pub fn spawn(fut: impl PlatformSendFuture<Output = ()> + 'static) {
+    spawn_impl(fut);
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn spawn_impl(fut: impl Future<Output = ()> + 'static + Send) {
+    use std::sync::OnceLock;
+    use tokio::runtime::{Builder, Handle, Runtime};
+
+    static RUNTIME: OnceLock<Runtime> = OnceLock::new();
+
+    if let Ok(handle) = Handle::try_current() {
+        handle.spawn(fut);
+    } else {
+        log::warn!("No Tokio runtime found. Creating a shared runtime.");
+        let rt = RUNTIME.get_or_init(|| {
+            Builder::new_multi_thread()
+                .enable_io()
+                .enable_time()
+                .thread_name("moly-kit-tokio")
+                .build()
+                .expect("Failed to create Tokio runtime for MolyKit")
+        });
+        rt.spawn(fut);
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+fn spawn_impl(fut: impl Future<Output = ()> + 'static) {
+    wasm_bindgen_futures::spawn_local(fut);
+}
+```
+
+### AbortOnDropHandle - Task Cancellation
+
+```rust
+/// A handle that aborts its associated future when dropped
+/// Useful in Makepad to ensure tasks get cancelled on widget drop
+pub struct AbortOnDropHandle(AbortHandle);
+
+impl Drop for AbortOnDropHandle {
+    fn drop(&mut self) {
+        self.abort();
+    }
+}
+
+impl AbortOnDropHandle {
+    pub fn abort(&mut self) {
+        self.0.abort();
+    }
+}
+
+/// Constructs a future + AbortOnDropHandle pair
+pub fn abort_on_drop<F, T>(future: F) -> (Abortable<F>, AbortOnDropHandle)
+where
+    F: PlatformSendFuture<Output = T> + 'static,
+{
+    let (abort_handle, abort_registration) = abortable(future);
+    (abort_handle, AbortOnDropHandle(abort_registration))
+}
+```
+
+### ThreadToken - Thread-Local Storage for non-Send Types
+
+```rust
+/// Holds a value inside thread-local storage
+/// Token can access the value only from the same thread that created it
+/// Useful on web where you need to pass non-Send values across Send boundaries
+pub struct ThreadToken<T: 'static>(Arc<ThreadTokenInner<T>>);
+
+impl<T> ThreadToken<T> {
+    /// Put value in thread-local storage, return token to access it
+    pub fn new(value: T) -> Self;
+
+    /// Immutable access to the value
+    pub fn peek<R>(&self, f: impl FnOnce(&T) -> R) -> R;
+
+    /// Mutable access to the value
+    pub fn peek_mut<R>(&self, f: impl FnOnce(&mut T) -> R) -> R;
+}
+
+impl<T: Clone> ThreadToken<T> {
+    /// Clone the associated value and return it
+    pub fn clone_inner(&self) -> T;
+}
+```
+
+### DeferAsync - Awaitable UI Operations
+
+```rust
+/// Async extension to UiRunner
+pub trait DeferAsync<T> {
+    /// Awaitable variant of UiRunner::defer
+    /// Returns None if widget couldn't execute the closure
+    async fn defer_async<R>(self, f: impl AsyncDeferCallback<T, R>) -> Option<R>
+    where
+        R: Send + 'static,
+        Self: Sized;
+}
+
+impl<T: 'static> DeferAsync<T> for UiRunner<T> {
+    async fn defer_async<R: Send + 'static>(self, f: impl AsyncDeferCallback<T, R>) -> Option<R> {
+        let (tx, rx) = futures::channel::oneshot::channel::<R>();
+        self.defer(move |me, cx, scope| {
+            let _ = tx.send(f(me, cx, scope));
+        });
+        rx.await.ok()
+    }
+}
+
+/// With redraw variant
+pub trait DeferWithRedrawAsync<T: 'static> {
+    async fn defer_with_redraw_async<R>(self, f: impl AsyncDeferCallback<T, R>) -> Option<R>
+    where
+        R: Send + 'static;
+}
+```
+
+---
+
+## BotClient Trait
+
+```rust
+/// Standard interface to fetch bots and send messages
+/// Warning: Expected to be cloned (keep cheap to clone and synced)
+pub trait BotClient: Send {
+    /// Send a message with streamed response
+    /// Each message in stream is a snapshot of the full message being built
+    fn send(
+        &mut self,
+        bot_id: &BotId,
+        messages: &[Message],
+        tools: &[Tool],
+    ) -> BoxPlatformSendStream<'static, ClientResult<MessageContent>>;
+
+    /// Get available bots
+    fn bots(&self) -> BoxPlatformSendFuture<'static, ClientResult<Vec<Bot>>>;
+
+    /// Make a boxed clone for passing around
+    fn clone_box(&self) -> Box<dyn BotClient>;
+
+    /// Optional: Override content rendering
+    fn content_widget(
+        &mut self,
+        _cx: &mut Cx,
+        _previous_widget: WidgetRef,
+        _templates: &HashMap<LiveId, LivePtr>,
+        _content: &MessageContent,
+    ) -> Option<WidgetRef> {
+        None
+    }
+
+    /// Approve a tool call by ID
+    fn approve_tool_call(&self, _tool_call_id: &str, _option_id: Option<&str>) -> bool {
+        false
+    }
+
+    /// Deny a tool call by ID
+    fn deny_tool_call(&self, _tool_call_id: &str, _option_id: Option<&str>) -> bool {
+        false
+    }
+}
+
+impl Clone for Box<dyn BotClient> {
+    fn clone(&self) -> Self {
+        self.clone_box()
+    }
+}
+```
+
+### BotContext - Sharable Client Wrapper
+
+```rust
+/// Sharable wrapper around BotClient with loaded bots
+/// Provides synchronous APIs for UI access
+pub struct BotContext(Arc<Mutex<InnerBotContext>>);
+
+impl BotContext {
+    /// Differentiates BotContexts by pointer address
+    pub fn id(&self) -> usize;
+
+    /// Fetches bots and keeps them for sync access later
+    pub fn load(&mut self) -> BoxPlatformSendFuture<ClientResult<()>>;
+
+    /// Get cloned client
+    pub fn client(&self) -> Box<dyn BotClient>;
+
+    /// Get loaded bots
+    pub fn bots(&self) -> Vec<Bot>;
+
+    /// Get specific bot by ID
+    pub fn get_bot(&self, id: &BotId) -> Option<Bot>;
+
+    /// Get/set tool manager
+    pub fn tool_manager(&self) -> Option<McpManagerClient>;
+    pub fn set_tool_manager(&mut self, tool_manager: McpManagerClient);
+}
+
+impl<T: BotClient + 'static> From<T> for BotContext {
+    fn from(client: T) -> Self { /* wrap in Arc<Mutex> */ }
+}
+```
+
+---
+
+## ClientError and ClientResult
+
+```rust
+/// Standard error kinds for client implementations
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum ClientErrorKind {
+    Network,    // Connection could not be established or was lost
+    Response,   // Remote server returned an error (HTTP error code)
+    Format,     // Response parsed but content invalid
+    Unknown,    // Uncontemplated error
+}
+
+/// Standard client error
+#[derive(Debug, Clone)]
+pub struct ClientError {
+    kind: ClientErrorKind,
+    message: String,
+    source: Option<Arc<dyn Error + Send + Sync + 'static>>,
+}
+
+impl ClientError {
+    pub fn new(kind: ClientErrorKind, message: String) -> Self;
+    pub fn new_with_source<S>(kind: ClientErrorKind, message: String, source: Option<S>) -> Self
+    where S: Error + Send + Sync + 'static;
+}
+
+/// Outcome that may contain both value and errors
+#[derive(Debug)]
+pub struct ClientResult<T> {
+    errors: Vec<ClientError>,
+    value: Option<T>,
+}
+
+impl<T> ClientResult<T> {
+    pub fn new_ok(value: T) -> Self;
+    pub fn new_err(errors: Vec<ClientError>) -> Self;
+    pub fn new_ok_and_err(value: T, errors: Vec<ClientError>) -> Self;
+
+    pub fn value(&self) -> Option<&T>;
+    pub fn errors(&self) -> &[ClientError];
+    pub fn has_value(&self) -> bool;
+    pub fn has_errors(&self) -> bool;
+    pub fn into_result(self) -> Result<T, Vec<ClientError>>;
+}
+```
+
+---
+
+## OpenAI Client
+
+```rust
+/// Client for OpenAI-compatible APIs with SSE streaming
+#[derive(Debug, Clone)]
+pub struct OpenAIClient(Arc<RwLock<OpenAIClientInner>>);
+
+impl OpenAIClient {
+    /// Create client with OpenAI-compatible API URL
+    pub fn new(url: String) -> Self;
+
+    /// Set custom header
+    pub fn set_header(&mut self, key: &str, value: &str) -> Result<(), &'static str>;
+
+    /// Set API key (Authorization: Bearer <key>)
+    pub fn set_key(&mut self, key: &str) -> Result<(), &'static str>;
+}
+
+impl BotClient for OpenAIClient {
+    fn bots(&self) -> BoxPlatformSendFuture<'static, ClientResult<Vec<Bot>>> {
+        // GET /models -> list of Bot
+    }
+
+    fn send(
+        &mut self,
+        bot_id: &BotId,
+        messages: &[Message],
+        tools: &[Tool],
+    ) -> BoxPlatformSendStream<'static, ClientResult<MessageContent>> {
+        // POST /chat/completions with stream: true
+        // Parse SSE events, yield MessageContent snapshots
+    }
+}
+```
+
+### SSE Parsing
+
+```rust
+/// Convert a stream of bytes into a stream of SSE messages
+pub fn parse_sse<S, B, E>(s: S) -> impl Stream<Item = Result<String, E>>
+where
+    S: Stream<Item = Result<B, E>>,
+    B: AsRef<[u8]>,
+{
+    stream! {
+        let mut buffer: Vec<u8> = Vec::new();
+        for await chunk in s {
+            buffer.extend_from_slice(chunk.as_ref());
+            // Split on "\n\n" terminator
+            // Filter comments (lines starting with ":")
+            // Extract data after "data:" prefix
+            // Filter "[DONE]" messages
+            for message in completed_messages {
+                yield Ok(message);
+            }
+        }
+    }
+}
+```
+
+---
+
+## MultiClient - Compose Multiple Clients
+
+```rust
+/// Client composed from multiple subclients
+#[derive(Clone)]
+pub struct MultiClient {
+    clients_with_bots: Arc<Mutex<Vec<(Box<dyn BotClient>, Vec<Bot>)>>>,
+}
+
+impl MultiClient {
+    pub fn new() -> Self;
+    pub fn add_client(&mut self, client: Box<dyn BotClient>);
+}
+
+impl BotClient for MultiClient {
+    fn bots(&self) -> BoxPlatformSendFuture<'static, ClientResult<Vec<Bot>>> {
+        // Fetch from all clients, merge results
+    }
+
+    fn send(&mut self, bot_id: &BotId, ...) -> BoxPlatformSendStream<...> {
+        // Find client that owns the bot, delegate to it
+    }
+}
+```
+
+---
+
+## Widgets
+
+### Slot Widget - Runtime Content Replacement
+
+```rust
+live_design! {
+    pub Slot = {{Slot}} {
+        width: Fill, height: Fit
+        slot = <View> {}
+    }
+}
+
+/// Widget that allows runtime content replacement
+#[derive(Live, Widget, LiveHook)]
+pub struct Slot {
+    #[deref] deref: View,
+    #[rust] current_widget: Option<WidgetRef>,
+    #[rust] default_widget: Option<WidgetRef>,
+}
+
+impl Slot {
+    /// Returns the current widget or the default slot content
+    pub fn current(&self) -> WidgetRef;
+
+    /// Returns the default slot content
+    pub fn default(&self) -> WidgetRef;
+
+    /// Replaces the current widget (restored on restore())
+    pub fn replace(&mut self, widget: WidgetRef);
+
+    /// Restore to default widget
+    pub fn restore(&mut self);
+}
+
+impl SlotRef {
+    pub fn current(&self) -> WidgetRef;
+    pub fn replace(&mut self, widget: WidgetRef);
+    pub fn restore(&mut self);
+}
+```
+
+### Avatar Widget - Text/Image Toggle
+
+```rust
+live_design! {
+    pub Avatar = {{Avatar}} <View> {
+        height: Fit, width: Fit,
+
+        grapheme = <RoundedView> {
+            visible: false,
+            width: 24, height: 24,
+            draw_bg: { color: #37567d, border_radius: 3 }
+            label = <Label> { text: "P" }
+        }
+
+        dependency = <RoundedView> {
+            visible: false,
+            width: 28, height: 28,
+            image = <Image> { width: 28, height: 28 }
+        }
+    }
+}
+
+#[derive(Live, Widget, LiveHook)]
+pub struct Avatar {
+    #[deref] deref: View,
+    #[rust] pub avatar: Option<Picture>,
+}
+
+impl Widget for Avatar {
+    fn draw_walk(&mut self, cx: &mut Cx2d, scope: &mut Scope, walk: Walk) -> DrawStep {
+        if let Some(avatar) = &self.avatar {
+            match avatar {
+                Picture::Grapheme(grapheme) => {
+                    self.view(id!(grapheme)).set_visible(cx, true);
+                    self.view(id!(dependency)).set_visible(cx, false);
+                    self.label(id!(label)).set_text(cx, &grapheme);
+                }
+                Picture::Dependency(dependency) => {
+                    self.view(id!(dependency)).set_visible(cx, true);
+                    self.view(id!(grapheme)).set_visible(cx, false);
+                    self.image(id!(image)).load_image_dep_by_path(cx, dependency.as_str());
+                }
+            }
+        }
+        self.deref.draw_walk(cx, scope, walk)
+    }
+}
+```
+
+### PromptInput Widget
+
+```rust
+live_design! {
+    pub PromptInput = {{PromptInput}} <CommandTextInput> {
+        send_icon: dep("crate://self/resources/send.svg"),
+        stop_icon: dep("crate://self/resources/stop.svg"),
+        // ... styling
+    }
+}
+
+#[derive(Default, Copy, Clone, PartialEq)]
+pub enum Task { #[default] Send, Stop }
+
+#[derive(Default, Copy, Clone, PartialEq)]
+pub enum Interactivity { #[default] Enabled, Disabled }
+
+#[derive(Live, Widget)]
+pub struct PromptInput {
+    #[deref] deref: CommandTextInput,
+    #[live] pub send_icon: LiveValue,
+    #[live] pub stop_icon: LiveValue,
+    #[rust] pub task: Task,
+    #[rust] pub interactivity: Interactivity,
+    #[rust] pub bot_capabilities: Option<BotCapabilities>,
+}
+
+impl PromptInput {
+    pub fn reset(&mut self, cx: &mut Cx);
+    pub fn submitted(&self, actions: &Actions) -> bool;
+    pub fn has_send_task(&self) -> bool;
+    pub fn has_stop_task(&self) -> bool;
+    pub fn enable(&mut self);
+    pub fn disable(&mut self);
+    pub fn set_send(&mut self);
+    pub fn set_stop(&mut self);
+    pub fn set_bot_capabilities(&mut self, cx: &mut Cx, capabilities: Option<BotCapabilities>);
+}
+```
+
+### Messages Widget - Conversation View
+
+```rust
+live_design! {
+    pub Messages = {{Messages}} {
+        flow: Overlay,
+        list = <PortalList> {
+            UserLine = <UserLine> {}
+            BotLine = <BotLine> {}
+            LoadingLine = <LoadingLine> {}
+            AppLine = <AppLine> {}
+            ErrorLine = <ErrorLine> {}
+            SystemLine = <SystemLine> {}
+            ToolLine = <ToolLine> {}
+            EndOfChat = <View> { height: 0.1 }
+        }
+        jump_to_bottom = <Button> { /* ... */ }
+    }
+}
+
+#[derive(Debug, PartialEq, Copy, Clone, DefaultNone)]
+pub enum MessagesAction {
+    Copy(usize),
+    Delete(usize),
+    EditSave(usize),
+    EditRegenerate(usize),
+    ToolApprove(usize),
+    ToolDeny(usize),
+    None,
+}
+
+#[derive(Live, Widget)]
+pub struct Messages {
+    #[deref] deref: View,
+    #[rust] pub messages: Vec<Message>,
+    #[rust] pub bot_context: Option<BotContext>,
+    #[rust] pub templates: HashMap<LiveId, LivePtr>,
+    #[rust] current_editor: Option<Editor>,
+    #[rust] visible_range: Option<(usize, usize)>,
+    // ...
+}
+
+impl Messages {
+    pub fn is_at_bottom(&self) -> bool;
+    pub fn user_scrolled(&self) -> bool;
+    pub fn scroll_to_bottom(&mut self, cx: &mut Cx, triggered_by_stream: bool);
+    pub fn set_message_editor_visibility(&mut self, index: usize, visible: bool);
+    pub fn current_editor_text(&self) -> Option<String>;
+    pub fn set_messages(&mut self, messages: Vec<Message>, scroll_to_bottom: bool);
+    pub fn reset_scroll_state(&mut self);
+}
+```
+
+### Chat Line Variants
+
+```rust
+live_design! {
+    // Base chat line structure
+    ChatLine = <View> {
+        flow: Down,
+        header = <View> {
+            avatar = <Avatar> {}
+            name = <Label> {}
+        }
+        message_section = <View> {
+            content_section = <View> {
+                content = <Slot> {
+                    slot = <StandardMessageContent> {}
+                }
+            }
+            actions = <View> { /* copy, edit, delete buttons */ }
+            editor = <View> { /* edit mode */ }
+            edit_actions = <View> { /* save, cancel */ }
+        }
+    }
+
+    // Variants
+    UserLine = <ChatLine> { /* user styling */ }
+    BotLine = <ChatLine> { /* bot styling */ }
+    AppLine = <ChatLine> { /* app message styling */ }
+    ErrorLine = <ChatLine> { /* error styling */ }
+    SystemLine = <ChatLine> { /* system styling */ }
+    ToolLine = <ChatLine> { /* tool call styling with approve/deny buttons */ }
+    LoadingLine = <ChatLine> { /* loading animation */ }
+}
+```
+
+---
+
+## Widget Reference Pattern
+
+```rust
+impl PromptInputRef {
+    /// Immutable access (panics if empty or already borrowed)
+    pub fn read(&self) -> Ref<PromptInput> {
+        self.borrow().unwrap()
+    }
+
+    /// Mutable access (panics if empty or already borrowed)
+    pub fn write(&mut self) -> RefMut<PromptInput> {
+        self.borrow_mut().unwrap()
+    }
+
+    /// Immutable reader
+    pub fn read_with<R>(&self, f: impl FnOnce(&PromptInput) -> R) -> R {
+        f(&*self.read())
+    }
+
+    /// Mutable writer
+    pub fn write_with<R>(&mut self, f: impl FnOnce(&mut PromptInput) -> R) -> R {
+        f(&mut *self.write())
+    }
+}
+```
+
+---
+
+## UiRunner Pattern for Async-to-UI
+
+```rust
+// From async task, update widget via UiRunner
+fn handle_event(&mut self, cx: &mut Cx, event: &Event, scope: &mut Scope) {
+    self.deref.handle_event(cx, event, scope);
+    self.ui_runner().handle(cx, event, scope, self);
+
+    if self.button(id!(attach)).clicked(event.actions()) {
+        let ui = self.ui_runner();
+        Attachment::pick_multiple(move |result| match result {
+            Ok(attachments) => {
+                ui.defer_with_redraw(move |me, _, _| {
+                    let mut list = me.attachment_list_ref();
+                    list.write().attachments.extend(attachments);
+                    list.write().on_tap(move |list, index| {
+                        list.attachments.remove(index);
+                    });
+                });
+            }
+            Err(_) => {}
+        });
+    }
+}
+```
+
+---
+
+## Best Practices
+
+1. **Use PlatformSend for cross-platform async**: Allows same code to work on native and WASM
+2. **Use spawn() for platform-agnostic task spawning**: Handles tokio vs wasm-bindgen-futures
+3. **Use AbortOnDropHandle for widget cleanup**: Cancel tasks when widget is dropped
+4. **Use ThreadToken for non-Send types on WASM**: Store in thread-local, access via token
+5. **Use Slot for runtime widget replacement**: Allows custom content from BotClient
+6. **Use WidgetRef patterns (read/write)**: Safe borrow access to widget internals
+7. **Use UiRunner::defer_with_redraw for async-to-UI**: Update widget state from async tasks
+8. **Implement BotClient for AI providers**: Standard interface for chat integration
+9. **Use MultiClient to combine providers**: Single interface for multiple AI services
+10. **Handle ClientResult partial success**: May have value AND errors

@@ -1,0 +1,22 @@
+{
+  "name": "makepad-skills",
+  "version": "1.0.0",
+  "description": "Comprehensive Makepad, Robius, and MolyKit skills for Claude Code",
+  "author": {
+    "name": "ZhangHanDong",
+    "email": "makepad-skills@example.com"
+  },
+  "repository": "https://github.com/ZhangHanDong/makepad-skills",
+  "homepage": "https://github.com/ZhangHanDong/makepad-skills",
+  "license": "MIT",
+  "keywords": [
+    "makepad",
+    "robius",
+    "molykit",
+    "live_design",
+    "rust-gui",
+    "cross-platform",
+    "shader",
+    "widget"
+  ]
+}

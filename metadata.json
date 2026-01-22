@@ -1,0 +1,76 @@
+{
+  "name": "makepad-skills",
+  "version": "1.0.0",
+  "description": "Comprehensive Makepad, Robius, and MolyKit skills for Claude",
+  "author": "makepad-skills contributors",
+  "license": "MIT",
+  "repository": "",
+
+  "stats": {
+    "makepad_skills": 10,
+    "robius_skills": 5,
+    "molykit_skills": 1,
+    "total_skills": 16
+  },
+
+  "skills": {
+    "makepad": [
+      "makepad-basics",
+      "makepad-dsl",
+      "makepad-layout",
+      "makepad-widgets",
+      "makepad-event-action",
+      "makepad-animation",
+      "makepad-shaders",
+      "makepad-platform",
+      "makepad-font",
+      "makepad-splash"
+    ],
+    "robius": [
+      "robius-app-architecture",
+      "robius-widget-patterns",
+      "robius-event-action",
+      "robius-state-management",
+      "robius-matrix-integration"
+    ],
+    "molykit": [
+      "molykit"
+    ]
+  },
+
+  "triggers": {
+    "makepad": [
+      "makepad", "live_design!", "app_main!", "Widget", "View", "Button",
+      "Label", "TextInput", "draw_bg", "Sdf2d", "shader", "animator",
+      "Flow", "Walk", "Size", "Padding", "WidgetRef", "WidgetAction"
+    ],
+    "robius": [
+      "robius", "robrix", "AppState", "Scope::with_data", "MatrixRequest",
+      "TimelineUpdate", "submit_async_request", "MatchEvent", "handle_actions"
+    ],
+    "molykit": [
+      "molykit", "moly-kit", "BotClient", "BotContext", "PlatformSend",
+      "SSE streaming", "AI chat", "OpenAI Makepad"
+    ]
+  },
+
+  "source_projects": {
+    "makepad": "https://github.com/makepad/makepad",
+    "robrix": "https://github.com/project-robius/robrix",
+    "moly": "https://github.com/moxin-org/moly",
+    "molykit": "https://github.com/moxin-org/moly/tree/main/moly-kit"
+  },
+
+  "compatibility": {
+    "claude_code_min_version": "2.1.0",
+    "makepad_version": "0.6.0+",
+    "rust_edition": "2024"
+  },
+
+  "last_updated": "2026-01-20",
+  "quality_checks": {
+    "skill_frontmatter": true,
+    "llms_txt_present": true,
+    "references_present": true
+  }
+}
