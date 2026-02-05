@@ -42,6 +42,8 @@ For production-ready widget patterns, see the `_base/` directory:
 | [17-row-based-grid-layout](./_base/17-row-based-grid-layout.md) | Dynamic grid layouts |
 | [18-drag-drop-reorder](./_base/18-drag-drop-reorder.md) | Drag-and-drop widget reordering |
 | [19-pageflip-optimization](./_base/19-pageflip-optimization.md) | PageFlip 切换优化，即刻销毁/缓存模式 |
+| [21-collapsible-row-portal-list](./_base/21-collapsible-row-portal-list.md) | Auto-grouping consecutive items in portal lists with FoldHeader |
+| [22-dropdown-overlay](./_base/22-dropdown-overlay.md) | Dropdown popups using DrawList2d overlay (no layout push) |
 
 ## Standard Widget Structure
 
