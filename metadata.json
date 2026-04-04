@@ -1,76 +1,63 @@
 {
   "name": "makepad-skills",
-  "version": "1.0.0",
-  "description": "Comprehensive Makepad, Robius, and MolyKit skills for Claude",
+  "version": "2.0.0",
+  "description": "Makepad 2.0 skills for Claude Code — DSL, layout, widgets, shaders, animation, and more",
   "author": "makepad-skills contributors",
   "license": "MIT",
   "repository": "",
 
   "stats": {
-    "makepad_skills": 10,
-    "robius_skills": 5,
-    "molykit_skills": 1,
-    "total_skills": 16
+    "makepad_2_0_skills": 13,
+    "total_skills": 13
   },
 
   "skills": {
-    "makepad": [
-      "makepad-basics",
-      "makepad-dsl",
-      "makepad-layout",
-      "makepad-widgets",
-      "makepad-event-action",
-      "makepad-animation",
-      "makepad-shaders",
-      "makepad-platform",
-      "makepad-font",
-      "makepad-splash"
-    ],
-    "robius": [
-      "robius-app-architecture",
-      "robius-widget-patterns",
-      "robius-event-action",
-      "robius-state-management",
-      "robius-matrix-integration"
-    ],
-    "molykit": [
-      "molykit"
+    "makepad-2.0": [
+      "makepad-2.0-animation",
+      "makepad-2.0-app-structure",
+      "makepad-2.0-dsl",
+      "makepad-2.0-events",
+      "makepad-2.0-layout",
+      "makepad-2.0-migration",
+      "makepad-2.0-performance",
+      "makepad-2.0-shaders",
+      "makepad-2.0-splash",
+      "makepad-2.0-theme",
+      "makepad-2.0-troubleshooting",
+      "makepad-2.0-vector",
+      "makepad-2.0-widgets"
     ]
   },
 
   "triggers": {
-    "makepad": [
-      "makepad", "live_design!", "app_main!", "Widget", "View", "Button",
+    "makepad-2.0": [
+      "makepad", "script_mod!", "app_main!", "Widget", "View", "Button",
       "Label", "TextInput", "draw_bg", "Sdf2d", "shader", "animator",
-      "Flow", "Walk", "Size", "Padding", "WidgetRef", "WidgetAction"
-    ],
-    "robius": [
-      "robius", "robrix", "AppState", "Scope::with_data", "MatrixRequest",
-      "TimelineUpdate", "submit_async_request", "MatchEvent", "handle_actions"
-    ],
-    "molykit": [
-      "molykit", "moly-kit", "BotClient", "BotContext", "PlatformSend",
-      "SSE streaming", "AI chat", "OpenAI Makepad"
+      "Flow", "Fill", "Fit", "Inset", "WidgetRef", "WidgetAction",
+      "ScriptVm", "ScriptHook", "mod.widgets", "mod.themes",
+      "Vector", "SVG", "Gradient", "DropShadow",
+      "theme", "dark mode", "light mode", "migration", "live_design to script_mod"
     ]
   },
 
   "source_projects": {
-    "makepad": "https://github.com/makepad/makepad",
-    "robrix": "https://github.com/project-robius/robrix",
-    "moly": "https://github.com/moxin-org/moly",
-    "molykit": "https://github.com/moxin-org/moly/tree/main/moly-kit"
+    "makepad": "https://github.com/makepad/makepad"
   },
 
   "compatibility": {
     "claude_code_min_version": "2.1.0",
-    "makepad_version": "0.6.0+",
+    "makepad_version": "2.0+",
     "rust_edition": "2024"
   },
 
-  "last_updated": "2026-01-20",
+  "legacy": {
+    "branch": "v1/makepad-1.0",
+    "description": "Makepad 1.x skills (10 makepad + 5 robius + 1 molykit) archived here"
+  },
+
+  "last_updated": "2026-04-05",
   "quality_checks": {
     "skill_frontmatter": true,
-    "llms_txt_present": true,
     "references_present": true
   }
 }
