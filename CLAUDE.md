@@ -1,11 +1,18 @@
 # Makepad 2.0 Skills - Claude Instructions
 
+## Entry Point
+
+**For ALL Makepad questions, FIRST load `makepad-2.0-design-judgment`.**
+This is the liberation layer — it provides design judgment anchors and routes
+to the correct compliance-layer skill. Then co-load the specific skill below.
+
 ## Skill Routing
 
 For Makepad 2.0 questions, route based on keywords:
 
 | Keywords | Skill |
 |----------|-------|
+| architecture, design, "how should I", component split, state management | makepad-2.0-design-judgment |
 | getting started, app structure, `app_main!`, `ScriptVm`, Cargo setup | makepad-2.0-app-structure |
 | DSL syntax, `script_mod!`, property, colon syntax, `mod.widgets` | makepad-2.0-dsl |
 | layout, width, height, Flow, Fill, Fit, Inset, spacing, align | makepad-2.0-layout |
@@ -59,7 +66,7 @@ When creating Makepad 2.0 projects:
 edition = "2024"
 
 [dependencies]
-makepad-widgets = "0.7"
+makepad-widgets = { git = "https://github.com/makepad/makepad", branch = "dev" }
 
 [features]
 default = []

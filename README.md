@@ -2,10 +2,11 @@
 
 Skills for building cross-platform UI applications with [Makepad 2.0](https://github.com/makepad/makepad).
 
-## Skills (13)
+## Skills (14)
 
 | Skill | Description |
 |-------|-------------|
+| `makepad-2.0-design-judgment` | **Entry point.** Design judgment anchors (Elm Architecture, Presentational/Container, GPU rendering mental model). Load this first, then co-load specific skills below. |
 | `makepad-2.0-app-structure` | App structure, `app_main!`, ScriptVm, Cargo setup, hot reload |
 | `makepad-2.0-dsl` | DSL syntax, `script_mod!`, colon syntax, `mod.widgets`, let bindings |
 | `makepad-2.0-layout` | Layout system, Flow, Fill, Fit, Inset, spacing, alignment |

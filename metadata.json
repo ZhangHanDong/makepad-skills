@@ -7,12 +7,13 @@
   "repository": "",
 
   "stats": {
-    "makepad_2_0_skills": 13,
-    "total_skills": 13
+    "makepad_2_0_skills": 14,
+    "total_skills": 14
   },
 
   "skills": {
     "makepad-2.0": [
+      "makepad-2.0-design-judgment",
       "makepad-2.0-animation",
       "makepad-2.0-app-structure",
       "makepad-2.0-dsl",
@@ -46,7 +47,7 @@
 
   "compatibility": {
     "claude_code_min_version": "2.1.0",
-    "makepad_version": "2.0+",
+    "makepad_version": "dev branch (git)",
     "rust_edition": "2024"
   },
 
@@ -55,7 +56,7 @@
     "description": "Makepad 1.x skills (10 makepad + 5 robius + 1 molykit) archived here"
   },
 
-  "last_updated": "2026-04-05",
+  "last_updated": "2026-04-06",
   "quality_checks": {
     "skill_frontmatter": true,
     "references_present": true
