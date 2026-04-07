@@ -71,6 +71,9 @@ in the model — let the integration happen, don't force chain-of-thought on jud
 - Makepad's `MatchEvent::handle_actions` IS Elm's `update` function.
 - **Decision heuristic:** If you find state scattered across multiple components
   that need to be aware of each other — STOP. Lift state to a common ancestor.
+- **Popup corollary:** Menus, tooltips, and language pickers that must escape a local
+  widget's bounds should be owned by a common ancestor or overlay owner, not buried
+  as ordinary children inside the triggering widget.
 - **External reality to obey:** Makepad's event system is the arbiter.
   `Cx::post_action` + `SignalToUI` is the canonical async→UI bridge.
   Don't invent alternatives.

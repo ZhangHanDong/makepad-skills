@@ -16,7 +16,7 @@ description: |
 
 # Makepad 2.0 Common Pitfalls & Troubleshooting Guide
 
-This skill covers the **top 25 most common mistakes** when building with Makepad 2.0 and the Splash scripting language. Each pitfall includes:
+This skill covers common mistakes when building with Makepad 2.0 and the Splash scripting language. Each pitfall includes:
 - What the user sees (symptom)
 - Why it happens (root cause)
 - How to fix it (correct code)
@@ -343,16 +343,16 @@ View{
 
 ---
 
-## Pitfall #9: Using commas in Splash -- causes parse errors
+## Pitfall #9: Commas in Splash -- tolerated but not required
 
-**Symptom:** Syntax errors when writing widget properties. The parser reports unexpected tokens or property values are misinterpreted.
+**Symptom:** Confusion about whether commas are allowed between properties in `script_mod!` blocks.
 
-**Root Cause:** Splash is whitespace-delimited. Commas are NOT separators in Splash syntax. Adding commas between properties or values causes the parser to treat them as part of the value or as unexpected tokens.
+**Root Cause:** Splash is primarily whitespace-delimited. However, the Splash tokenizer **treats commas as whitespace** — they are silently consumed and do not cause parse errors. Many Makepad projects (including Robrix) use commas extensively in `script_mod!` blocks, inherited from Makepad 1.x `live_design!` syntax which required commas.
 
-**Fix:** Remove all commas. Use whitespace (spaces or newlines) to separate properties and values.
+**Guidance:** Both styles are valid. Match the surrounding code style:
 
 ```
-// WRONG -- commas cause parse errors
+// Style A: with commas (common in codebases migrated from 1.x)
 View{
     flow: Down,
     height: Fit,
@@ -360,7 +360,7 @@ View{
     padding: Inset{top: 5, bottom: 5, left: 10, right: 10}
 }
 
-// CORRECT -- whitespace-delimited, no commas
+// Style B: without commas (pure Splash style)
 View{
     flow: Down
     height: Fit
@@ -368,6 +368,8 @@ View{
     padding: Inset{top: 5 bottom: 5 left: 10 right: 10}
 }
 ```
+
+**Note:** Both compile and run identically. The tokenizer discards commas. Do NOT waste time removing commas from existing code — it creates noisy diffs with no functional change.
 
 ---
 
@@ -1002,7 +1004,7 @@ Problem: Compilation error
 ## Additional Notes
 
 ### Splash Syntax Quick Rules
-1. No commas between properties (whitespace-delimited)
+1. Commas are optional between properties (tokenizer treats them as whitespace)
 2. No semicolons anywhere
 3. `:=` for named/addressable children, `:` for static properties
 4. `+:` to merge with parent instead of replacing
@@ -1405,6 +1407,47 @@ draw_bg.border_radius: 8.0
 
 ---
 
+## Pitfall #45: Popup/menu opens in the wrong place -- treating layout spacing as overlay positioning
+
+**Symptom:** A popup menu or language selector should appear above a button, but it keeps
+appearing below it, pinned to the wrong corner, or behaving as if your Y-position math is
+being ignored.
+
+**Root Cause:** You built the popup as an ordinary child in a local layout tree and tried to
+position it with `margin.top` / `margin.left` or other layout offsets. In Makepad, that is
+still layout negotiation, not a true overlay anchor. For real popup behavior, the popup
+should usually live in a top-level overlay owner (`Modal`, tooltip layer, popup owner) and
+be positioned with `walk.abs_pos`.
+
+**Fix:** Move popup ownership to a common ancestor or overlay owner. Read the trigger button
+position with `button.area().clipped_rect(cx)`, compute the popup's absolute position in the
+overlay's coordinate space, and write it to `popup.walk.abs_pos`.
+
+```rust
+// WRONG -- local child + layout spacing fights the turtle
+script_apply_eval!(cx, popup, {
+    margin.left: #(x)
+    margin.top: #(y)
+});
+
+// CORRECT -- top-level overlay popup with explicit absolute anchor
+let button_rect = button.area().clipped_rect(cx);
+let popup_pos = dvec2(button_rect.pos.x, button_rect.pos.y - 294.0);
+
+if let Some(mut popup) = self.view(cx, ids!(popup)).borrow_mut() {
+    popup.walk.abs_pos = Some(popup_pos);
+}
+```
+
+**Important distinction:**
+- `clip_x: false` / `clip_y: false` only let a local child paint outside its parent.
+- They do NOT make that child behave like a true overlay.
+
+**Rule of thumb:** If the popup must escape the component that triggered it, lift the popup
+state to a common ancestor and let that ancestor own the overlay.
+
+---
+
 ## Updated Diagnostic Decision Tree (additions)
 
 ```
@@ -1421,4 +1464,9 @@ Problem: Dock renders blank after state restore
 Problem: Named child not addressable from Rust
   |
   +-- Used = instead of := in script_mod!?               --> Pitfall #43 (use :=)
+
+Problem: Popup/menu anchored to button but renders in wrong place
+  |
+  +-- Built as normal child and moved with margin?       --> Pitfall #45 (use top-level overlay + walk.abs_pos)
+  +-- Only disabled clip_x/clip_y on local parent?       --> Pitfall #45 (overflow is not a true overlay)
 ```

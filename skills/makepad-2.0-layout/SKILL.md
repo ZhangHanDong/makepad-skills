@@ -292,6 +292,40 @@ View{
 }
 ```
 
+**Important boundary:** `clip_x: false` / `clip_y: false` only allow a local child to
+paint outside its parent. They do NOT turn that child into a true window-level overlay.
+If the UI element is a popup/menu/tooltip that should float independently of the local
+layout tree, use a top-level `Modal`/overlay owner instead of relying on local overflow.
+
+### Overlay Popups: `walk.abs_pos` vs `margin`
+
+For popup-style positioning inside an overlay (`Modal`, tooltip layer, popup owner),
+prefer `walk.abs_pos` over runtime `margin` tweaks.
+
+- `margin` is layout spacing. It is best for nudging normal flow children.
+- `walk.abs_pos` is an explicit turtle anchor for overlay-style placement.
+- `button.area().clipped_rect(cx)` gives you the trigger's actual screen-space rect,
+  including `view_shift` and clipping.
+- For overlay content, compute the popup's absolute screen-space target, then write
+  that into `popup.walk.abs_pos = Some(dvec2(x, y))`.
+
+```rust
+let button_rect = button.area().clipped_rect(cx);
+let popup_pos = dvec2(button_rect.pos.x, button_rect.pos.y - 294.0);
+
+if let Some(mut popup) = self.view(cx, ids!(popup)).borrow_mut() {
+    popup.walk.abs_pos = Some(popup_pos);
+}
+```
+
+**Rule of thumb:**
+- Popup inside normal layout tree, only slight overflow needed: local child + `clip_x/clip_y: false`
+- Popup anchored to a button but visually outside the component: top-level overlay + `walk.abs_pos`
+
+**Common mistake:** Using `script_apply_eval!` to push `margin.top` / `margin.left` on
+overlay content and expecting stable popup coordinates. That often produces misleading
+results because you are still negotiating with layout, not explicitly anchoring the popup.
+
 ---
 
 ## Inset Syntax

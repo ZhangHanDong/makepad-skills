@@ -1,5 +1,60 @@
 # Makepad 2.0 Skills - Claude Instructions
 
+## Design Judgment Anchors (Liberation Layer)
+
+These concept anchors provide design judgment for Makepad 2.0 architecture questions. Use them when facing "how should I organize state / split components / handle complex interactions" — questions without a single correct answer. The specific DSL, API, and widget patterns come from the compliance-layer skills below; this section is the liberation layer.
+
+### Data Flow
+Reference **Elm Architecture** (Evan Czaplicki):
+
+- State is centralized, UI is a projection of state, events trigger updates
+- Makepad's event handlers are Elm's `update` function
+- If you find state scattered across components that need to observe each other — stop, lift the state to a common ancestor
+
+### Component Decomposition
+Reference **Dan Abramov**'s presentational vs container distinction:
+
+- Presentational components: receive props, hold no state, no side effects
+- Container components: hold state, handle events, coordinate children
+- Use Makepad's delegation patterns to separate Widget rendering from business logic
+
+### Rendering Mindset
+Reference **Casey Muratori** (Handmade Hero):
+
+- This is not a DOM, it's a GPU-rendered frame every tick
+- Don't think "mutate the node", think "what does the next frame look like"
+- `redraw(cx)` is not "mark node dirty" — it's "tell the GPU to repaint this region next frame"
+
+### Layout
+Reference **CSS Flexbox** as a mental model (but simpler):
+
+- `Flow.Down` = flex-direction: column
+- `Flow.Right` = flex-direction: row
+- `align`, `spacing`, `padding`, `margin` — same semantics as CSS
+- Difference: Makepad has no CSS cascade or inheritance. Each component's style is self-contained — **this is a feature, not a bug**
+
+### Animation and Shaders
+Reference the **Shadertoy** community's "everything is math" mindset:
+
+- Makepad shader fields contain real GPU shader code, not CSS-equivalents
+- `Sdf2d` is a signed distance field — describe shapes with math, not bitmaps
+- Animation is a shader uniform changing over time, not a CSS transition
+- When you want a rounded button, the answer is an SDF function, not `border-radius`
+
+### Cross-Platform Philosophy
+Reference **Flutter**'s "own every pixel" philosophy:
+
+- Makepad draws everything itself, does not use native platform controls
+- Benefit: pixel-perfect cross-platform consistency
+- Cost: accessibility support is a known weakness
+- Don't try to mimic native control appearance — embrace Makepad's own design language
+
+### When Anchors Conflict with Compliance-Layer Skills
+
+If a design judgment from these anchors contradicts the actual Makepad 2.0 API documented in a compliance-layer skill, **the compliance-layer skill wins**. Those skills are the external reality. Anchors help you navigate within that reality, not override it.
+
+---
+
 ## Entry Point
 
 **For ALL Makepad questions, FIRST load `makepad-2.0-design-judgment`.**
@@ -78,5 +133,4 @@ nightly = ["makepad-widgets/nightly"]
 Makepad 1.x skills (including Robius and MolyKit patterns) are archived on the `v1/makepad-1.0` branch.
 
 ## Source
-
 - **Makepad**: https://github.com/makepad/makepad
